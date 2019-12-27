@@ -9,11 +9,13 @@ import android.widget.ListView;
 import android.widget.SimpleAdapter;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,10 +25,13 @@ public class ListViewActivity extends AppCompatActivity {
     private static final String TITLE = "title";
     private static final String SNIPPET = "snippet";
     private static final String KEY_TEXT = "KEY_TEXT";
+    private static final String KEY_INSTANCE_STATE = "key instance state";
     private List<Map<String,String>> content;
     protected BaseAdapter listContentAdapter;
     protected SharedPreferences sharedPref;
     protected SwipeRefreshLayout swipeLayout;
+    private ArrayList<Integer> listDeleted;
+
 
 
     @Override
@@ -43,9 +48,10 @@ public class ListViewActivity extends AppCompatActivity {
     private void initViews() {
         String data = getData();
 
-        if (!data.equals(getString(R.string.large_text))) {
+        if (data == null) {
+            data = getString(R.string.large_text);
             SharedPreferences.Editor myEditor = sharedPref.edit();
-            myEditor.putString(KEY_TEXT, getString(R.string.large_text));
+            myEditor.putString(KEY_TEXT, data);
             myEditor.apply();
         }
 
@@ -53,10 +59,12 @@ public class ListViewActivity extends AppCompatActivity {
         content = prepareContent(data);
         listContentAdapter = createAdapter(content);
         list.setAdapter(listContentAdapter);
+        listDeleted = new ArrayList<>();
 
         list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                listDeleted.add(position);
                 content.remove(position);
                 listContentAdapter.notifyDataSetChanged();
             }
@@ -96,11 +104,30 @@ public class ListViewActivity extends AppCompatActivity {
         return content;
     }
 
-    @NonNull
     private String getData() {
         sharedPref = getPreferences(MODE_PRIVATE);
-        String data = sharedPref.getString(KEY_TEXT, "");
-        return data != null ? data : "";
+        return sharedPref.getString(KEY_TEXT, "");
     }
 
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putIntegerArrayList(KEY_INSTANCE_STATE, listDeleted);
+
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        if (savedInstanceState.containsKey(KEY_INSTANCE_STATE)) {
+            listDeleted = savedInstanceState.getIntegerArrayList(KEY_INSTANCE_STATE);
+            if (listDeleted != null) {
+                for (Integer position : listDeleted) {
+                    content.remove(position.intValue());
+                }
+            }
+            listContentAdapter.notifyDataSetChanged();
+        }
+
+    }
 }
